@@ -64,6 +64,53 @@ register_deactivation_hook( __FILE__, 'deactivate_smwf' );
  */
 require plugin_dir_path( __FILE__ ) . 'includes/class-smwf.php';
 
+wp_register_style('your_namespace', plugins_url('style.css',__FILE__ ));
+wp_enqueue_style('your_namespace');
+
+function twitter_filter_content( $content ) 
+{  
+    global $post ;	
+    if ( is_singular() && in_the_loop() && is_main_query() && $post->post_type == "post" ) 
+    { 
+	 $postid = $post->ID ;
+	 $smwf_tags = get_the_tags($postid);
+	 // tag filtering stuff goes here
+	 foreach ($smwf_tags as &$lc_tag) {
+		 echo $lc_tag->name;
+		 echo "----------------";
+	 }
+
+	 // get list of renderables
+	 $s1 = new StdClass() ;
+	 $s1->title = "test post 1" ;
+	 $s1->content = "somethingsomething that or other" ;
+	 $s1->link = "https://www.google.com" ;
+	 $s1->image = "https://asia.olympus-imaging.com/content/000107507.jpg" ;
+	 $s2 = new StdClass() ;
+	 $s2->title = "test post 2" ;
+	 $s2->content = "somethingsomething that or other" ;
+
+	 $sample = array($s1,$s2);
+		
+	 //render
+	 $renderable = "<style>" . file_get_contents( __DIR__ . "/styles.css") . "</style><div class='smwf-postlist'>";
+	 for ($postn = 0; $postn < count($sample) ; $postn++ ){
+		$renderable .= "<div class='smwf-post'><a href='" .  $sample[$postn]->link . "'><h3>" . $sample[$postn]->title  . "</h3><br/><div class='smwf-content'>"  . $sample[$postn]->content  . "</div>" ;
+		if (! empty($sample[$postn]->image)){
+			$renderable .= "<img src='" . $sample[$postn]->image  . "'>";
+		}
+		$renderable .= "</a></div>";
+	 }
+         $renderable .= "</div>";
+      	 return $content . $renderable;		  
+    }
+    else {
+	return $content;
+    }
+}
+
+add_filter( 'the_content', 'twitter_filter_content');
+
 /**
  * Begins execution of the plugin.
  *

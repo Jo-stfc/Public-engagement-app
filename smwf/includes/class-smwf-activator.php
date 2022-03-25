@@ -30,7 +30,8 @@ class Smwf_Activator {
 	 * @since    1.0.0
 	 */
 	public static function activate() {
-
+           wp_register_style('smwf', plugins_url('style.css',__FILE__ ));
+	   wp_enqueue_style('smwf');
 	}
 
 }
