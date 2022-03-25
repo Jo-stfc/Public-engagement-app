@@ -1,0 +1,28 @@
+.smwf-post{
+    background-color: aliceblue;
+    padding: 15px;
+    margin-bottom:10px;
+    display:flex ;
+}
+
+.smwf-post:hover{
+    background-color:skyblue;
+}
+
+.smwf-post h3{
+    background-color: skyblue;
+    text-align: center;
+
+}
+.smwf-postlist {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-content: center;
+    align-items: center;
+}
+.smwf-post a{
+    text-decoration: none;
+    text-color: black;
+}
+
