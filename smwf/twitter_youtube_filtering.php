@@ -80,7 +80,7 @@ function collect_tweets($userId) {
 // use array_filter(collect_tweets(), 'tweetContainsKeyword')
 function tweetContainsKeyword($tweet) {
 	global $twitterKeywords;
-	foreach ($keywords as &$keyword) {
+	foreach ($twitterKeywords as &$keyword) {
 		if(stripos($tweet->text, $keyword) !== false) {
 			return true;
 		}
@@ -160,9 +160,9 @@ function getChannelVideos($channelId, $currentVideoList = null) {
 }
 
 function videoContainsKeyword($video) {
-	global $keywords;
+	global $youtubeKeywords;
 	
-	foreach ($keywords as &$keyword) {
+	foreach ($youtubeKeywords as &$keyword) {
 		if(stripos($video->snippet->title, $keyword) !== false || stripos($video->snippet->description, $keyword) !== false) {
 			return true;
 		}
