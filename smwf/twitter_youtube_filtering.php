@@ -10,10 +10,10 @@ if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
 use Abraham\TwitterOAuth\TwitterOAuth;
 
 //TWITTER SETUP
-$CONSUMER_KEY = '';
-$CONSUMER_SECRET = '';
-$access_token = '';
-$access_token_secret = '';
+$CONSUMER_KEY = 'U7V8BJ7aJYS4uWph2QXC9Qhvb';
+$CONSUMER_SECRET = '69cmAsDrfw62SmhcPN3wPH1aK8SyzkMptADfBWzASzzCW0KGJf';
+$access_token = '1491015314880012293-lStSF8K96QMbFElDkoGvm12xyw0x9P';
+$access_token_secret = 'Z2G2nvhxM9fsxMq8fahGoSE3p51o35s9YgE6F0vCxcjAI';
 $connection = new TwitterOAuth($CONSUMER_KEY, $CONSUMER_SECRET, $access_token, $access_token_secret);
 $content = $connection->get("account/verify_credentials");
 $connection->setApiVersion('2');
@@ -24,7 +24,7 @@ $twitter_max_results = '20';
 //TWITTER SETUP
 
 //YOUTUBE SETUP
-$developer_key = '';
+$developer_key = 'AIzaSyA-2y5ib7rmh0bmg9J5QMxEQ7M-fhHaNSI';
 $client = new Google_Client();
 $client->setApplicationName('API code samples');
 $client->setDeveloperKey($developer_key);
@@ -95,7 +95,7 @@ function update_youtube_videos() {
 		$videos_from_file = get_object_from_file("$channel_id" . "_videos");
 		
 		//If the videos are in memory, use that
-		if(isset(${$channel_id . '_videos'})){
+		if(isset(${$channel_id . '_videos'})) {
 			$video_list = ${$channel_id . '_videos'};
 		//Else use the data loaded from file if it exists
 		} elseif(!is_null($videos_from_file)) {
@@ -256,6 +256,7 @@ function get_twitter_user_ids() {
 function get_channel_videos($channel_id, $current_video_list = null) {
 	global $youtube_max_results, $service;
 	
+	$videos = array();
 	$previous_total_videos = is_null($current_video_list) ? 0 : $current_video_list->pageInfo->totalResults;
 	
 	$query_params = [
@@ -266,27 +267,30 @@ function get_channel_videos($channel_id, $current_video_list = null) {
 	];
 	
 	$response = $service->search->listSearch('snippet', $query_params);
+	
 	$new_video_list = is_null($current_video_list) ? $response : $current_video_list;
 	$new_total_videos = $response->pageInfo->totalResults;
 	$remaining_videos_to_fetch = $new_total_videos - $previous_total_videos;
+
+	$new_video_list->pageInfo->totalResults = $new_total_videos;
+	$videos = $remaining_videos_to_fetch < $youtube_max_results ? array_merge($videos, array_slice($response->items, 0, $remaining_videos_to_fetch, true)) : array_merge($videos, $response->items);
+	$remaining_videos_to_fetch = $remaining_videos_to_fetch - $youtube_max_results;
 	
-	if($remaining_videos_to_fetch > 0 && $current_video_list != null) {
-		$new_video_list->pageInfo->totalResults = $new_total_videos->pageInfo->totalResults;
-		$new_video_list->items = $remaining_videos_to_fetch < $youtube_max_results ? array_merge($new_video_list->items, array_slice($response->items, 0, $remaining_videos_to_fetch, true)) : array_merge($new_video_list->items, $response->items);
-		
-		$remaining_videos_to_fetch = $remaining_videos_to_fetch - $youtube_max_results;
-	}
 	
 	//while there are more videos to fetch
 	while(property_exists($response, 'nextPageToken') && $remaining_videos_to_fetch > 0) {
 		$query_params['pageToken'] = $response->nextPageToken;
 		$response = $service->search->listSearch('snippet', $query_params);
-		
+
 		//if we've reached the last page of results we need, only add the remaining number of videos we need, otherwise add the whole page
-		$new_video_list->items = $remaining_videos_to_fetch < $youtube_max_results ? array_merge($new_video_list->items, array_slice($response->items, 0, $remaining_videos_to_fetch, true)) : array_merge($new_video_list->items, $response->items);
+		$videos = $remaining_videos_to_fetch < $youtube_max_results ? array_merge($videos, array_slice($response->items, 0, $remaining_videos_to_fetch, true)) : array_merge($videos, $response->items);
 		
 		$remaining_videos_to_fetch = $remaining_videos_to_fetch - $youtube_max_results;
 	}
+
+	//if we're fetching a channel's videos for the first time they're already in the correct order 
+	//if we're getting new ones, preprend them to the list of existing ones
+	$new_video_list->items = is_null($current_video_list) ? $videos : array_merge($videos, $new_video_list->items);
 	
 	return $new_video_list;
 }
