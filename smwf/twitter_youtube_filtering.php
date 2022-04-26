@@ -10,10 +10,10 @@ if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
 use Abraham\TwitterOAuth\TwitterOAuth;
 
 //TWITTER SETUP
-$CONSUMER_KEY = 'U7V8BJ7aJYS4uWph2QXC9Qhvb';
-$CONSUMER_SECRET = '69cmAsDrfw62SmhcPN3wPH1aK8SyzkMptADfBWzASzzCW0KGJf';
-$access_token = '1491015314880012293-lStSF8K96QMbFElDkoGvm12xyw0x9P';
-$access_token_secret = 'Z2G2nvhxM9fsxMq8fahGoSE3p51o35s9YgE6F0vCxcjAI';
+$CONSUMER_KEY = '';
+$CONSUMER_SECRET = '';
+$access_token = '';
+$access_token_secret = '';
 $connection = new TwitterOAuth($CONSUMER_KEY, $CONSUMER_SECRET, $access_token, $access_token_secret);
 $content = $connection->get("account/verify_credentials");
 $connection->setApiVersion('2');
@@ -24,7 +24,7 @@ $twitter_max_results = '20';
 //TWITTER SETUP
 
 //YOUTUBE SETUP
-$developer_key = 'AIzaSyA-2y5ib7rmh0bmg9J5QMxEQ7M-fhHaNSI';
+$developer_key = '';
 $client = new Google_Client();
 $client->setApplicationName('API code samples');
 $client->setDeveloperKey($developer_key);
