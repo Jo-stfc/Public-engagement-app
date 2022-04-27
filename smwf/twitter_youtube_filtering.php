@@ -10,7 +10,7 @@ if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
 use Abraham\TwitterOAuth\TwitterOAuth;
 
 //TWITTER SETUP
-$api_secrets = get_object_from_file('api_secrets');											   
+$api_secrets = get_object_from_file('api_secrets');
 $CONSUMER_KEY = $api_secrets->CONSUMER_KEY;
 $CONSUMER_SECRET = $api_secrets->CONSUMER_SECRET;
 $access_token = $api_secrets->access_token;
@@ -18,8 +18,7 @@ $access_token_secret = $api_secrets->access_token_secret;
 $connection = new TwitterOAuth($CONSUMER_KEY, $CONSUMER_SECRET, $access_token, $access_token_secret);
 $content = $connection->get("account/verify_credentials");
 $connection->setApiVersion('2');
-$user_names = get_object_from_file('twitter_usernames');
-$user_ids = get_object_from_file('twitter_user_ids');
+$twitter_usernames = get_usernames('twitter');
 $twitter_keywords = array('update', 'learn');
 $twitter_max_results = '20';
 //TWITTER SETUP
@@ -34,17 +33,30 @@ $client->setDeveloperKey($developer_key);
 $service = new Google_Service_YouTube($client);
 
 $youtube_keywords = ['matter', 'daresbury'];
-$channel_ids = get_object_from_file('youtube_channel_ids');
+$youtube_usernames = get_usernames('youtube');
 $youtube_max_results = 10;
 //YOUTUBE SETUP
 
 //TO BE CALLED BY OTHER STUFF
+function get_usernames($social_media) {
+	global $media_sources;
+	
+	$usernames = array();
+	
+	foreach ($media_sources as &$media_source) {
+		if($media_source->social == $social_media) {
+			$usernames[$media_source->tag] = $media_source->id;
+		}
+	}
+	
+	return $usernames;
+}
 
 //Initialises or updates the variables and files for all user's tweets
 function update_tweets() {
-	global $user_names, $user_ids;
-	
-	foreach ($user_names as &$user_name) {
+	global $twitter_usernames;
+
+	foreach ($twitter_usernames as $user_name => $user_id) {
 		global ${$user_name . '_tweets'};
 		
 		$tweets_from_file = get_object_from_file("$user_name" . "_tweets");
@@ -54,7 +66,7 @@ function update_tweets() {
 			$latest_id = ${$user_name . '_tweets'}[0]->id;
 			
 			try {
-				$new_tweets = get_new_tweets($user_ids[$user_name], $latest_id);
+				$new_tweets = get_new_tweets($user_id, $latest_id);
 				${$user_name . '_tweets'} = array_merge($new_tweets, ${$user_name . '_tweets'});
 				write_object_to_file(${$user_name . '_tweets'}, "$user_name" . "_tweets");
 			} catch(Exception $e) {
@@ -65,7 +77,7 @@ function update_tweets() {
 			$latest_id = $tweets_from_file[0]->id;
 			
 			try {
-				$new_tweets = get_new_tweets($user_ids[$user_name], $latest_id);
+				$new_tweets = get_new_tweets($user_id, $latest_id);
 				${$user_name . '_tweets'} = array_merge($new_tweets, $tweets_from_file);
 				write_object_to_file(${$user_name . '_tweets'}, "$user_name" . "_tweets");
 			} catch(Exception $e) {
@@ -74,7 +86,7 @@ function update_tweets() {
 		//Clean initialisation
 		} else {
 			try {
-				$collected_tweets = collect_tweets($user_ids[$user_name]);
+				$collected_tweets = collect_tweets($user_id);
 			
 				if(count($collected_tweets) > 0) {
 					${$user_name . '_tweets'} = $collected_tweets;
@@ -89,15 +101,15 @@ function update_tweets() {
 
 //Initialises or updates the variables and files for all channels's youtube videos
 function update_youtube_videos() {
-	global $channel_ids;
+	global $youtube_usernames;
 	
-	foreach ($channel_ids as &$channel_id) {
-		global ${$channel_id . '_videos'};
-		$videos_from_file = get_object_from_file("$channel_id" . "_videos");
+	foreach ($youtube_usernames as $user_name => &$channel_id) {
+		global ${$user_name . '_videos'};
+		$videos_from_file = get_object_from_file("$user_name" . "_videos");
 		
 		//If the videos are in memory, use that
-		if(isset(${$channel_id . '_videos'})) {
-			$video_list = ${$channel_id . '_videos'};
+		if(isset(${$user_name . '_videos'})) {
+			$video_list = ${$user_name . '_videos'};
 		//Else use the data loaded from file if it exists
 		} elseif(!is_null($videos_from_file)) {
 			$video_list = $videos_from_file;
@@ -107,8 +119,8 @@ function update_youtube_videos() {
 		}
 		
 		try {
-			${$channel_id . '_videos'} = get_channel_videos($channel_id, $video_list);
-			write_object_to_file(${$channel_id . '_videos'}, "$channel_id" . "_videos");
+			${$user_name . '_videos'} = get_channel_videos($channel_id, $video_list);
+			write_object_to_file(${$user_name . '_videos'}, "$user_name" . "_videos");
 		} catch(Exception $e) {
 			echo 'Message: ' .$e->getMessage();
 		}
@@ -140,16 +152,16 @@ function filter_tweets($user_name) {
 }
 
 //To be called externally for filtering, uses a file as a fallback
-function filter_videos($channel_id) {
-	if(isset(${$channel_id . '_videos'})) {
-		return array_filter(${$channel_id . '_videos'}->items, 'video_contains_keyword');
+function filter_videos($user_name) {
+	if(isset(${$user_name . '_videos'})) {
+		return array_filter(${$user_name . '_videos'}->items, 'video_contains_keyword');
 	}
 	
-	$videos_from_file = get_object_from_file("$channel_id" . "_videos");
+	$videos_from_file = get_object_from_file("$user_name" . "_videos");
 	
 	if(!is_null($videos_from_file)) {
-		${$channel_id . '_videos'} = $videos_from_file;
-		return array_filter(${$channel_id . '_videos'}->items, 'video_contains_keyword');
+		${$user_name . '_videos'} = $videos_from_file;
+		return array_filter(${$user_name . '_videos'}->items, 'video_contains_keyword');
 	}
 	
 	return array();
@@ -164,7 +176,6 @@ function collect_tweets($user_id) {
 	global $connection, $twitter_max_results;
 	
 	$tweets = array();
-	
 	$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results]);
 	
 	if(is_null($result) || property_exists($result, 'errors')) {
@@ -229,8 +240,8 @@ function get_new_tweets($user_id, $last_tweet_id) {
 }
 
 //Gets a list of Twitter IDs from a list of user names
-function get_twitter_user_ids() {
-	global $connection, $user_names;
+function get_twitter_user_ids($user_names) {
+	global $connection;
 	
 	$user_ids = array();
 	$user_id_response_array = $connection->get('users/by', ['usernames' => $user_names]);
