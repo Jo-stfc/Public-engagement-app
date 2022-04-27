@@ -114,8 +114,6 @@ function update_youtube_videos() {
 	}
 }
 
-update_youtube_videos();
-
 //Called by cron for updating/initilising social medias
 function update_social_medias() {
 	update_tweets();
