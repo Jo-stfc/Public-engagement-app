@@ -19,7 +19,6 @@ $connection = new TwitterOAuth($CONSUMER_KEY, $CONSUMER_SECRET, $access_token, $
 $content = $connection->get("account/verify_credentials");
 $connection->setApiVersion('2');
 $twitter_usernames = get_usernames('twitter');
-$twitter_keywords = array('update', 'learn');
 $twitter_max_results = '20';
 //TWITTER SETUP
 
@@ -31,11 +30,10 @@ $client->setDeveloperKey($developer_key);
 
 // Define service object for making API requests.
 $service = new Google_Service_YouTube($client);
-
-$youtube_keywords = ['matter', 'daresbury'];
 $youtube_usernames = get_usernames('youtube');
 $youtube_max_results = 10;
 //YOUTUBE SETUP
+$keywords = get_keywords_from_tags();
 
 //TO BE CALLED BY OTHER STUFF
 function get_usernames($social_media) {
@@ -136,7 +134,29 @@ function update_social_medias() {
 //on page load assign keyword array relevant to page to a global var for the filter function?
 //get the keywords from Option[$user_name]?
 //To be called externally for filtering, uses a file as a fallback
-function filter_tweets($user_name) {
+
+function get_name_from_tags($social_media) {
+	$id = get_the_ID();
+	$tags = get_the_tags($id);
+	
+	//assuming there is one type of social media account for each post
+	return array_intersect(get_usernames($social_media), $tags)[0];
+}
+
+function get_keywords_from_tags() {
+	global $twitter_usernames, $youtube_usernames;
+	
+	$id = get_the_ID();
+	$tags = get_the_tags($id);
+	$all_socials = array_merge($twitter_usernames, $youtube_usernames);
+	
+	return array_diff($all_socials, $tags);
+}
+
+
+function filter_tweets() {
+	$user_name = get_name_from_tags('twitter');
+	
 	if(isset(${$user_name . '_tweets'})) {
 		return array_filter(${$user_name . '_tweets'}, 'tweet_contains_keyword');
 	}
@@ -152,7 +172,9 @@ function filter_tweets($user_name) {
 }
 
 //To be called externally for filtering, uses a file as a fallback
-function filter_videos($user_name) {
+function filter_videos() {
+	$user_name = get_name_from_tags('youtube');
+	
 	if(isset(${$user_name . '_videos'})) {
 		return array_filter(${$user_name . '_videos'}->items, 'video_contains_keyword');
 	}
@@ -201,9 +223,9 @@ function collect_tweets($user_id) {
 //Returns true if a tweet contains a keyword, otherwise false
 //Use array_filter() e.g. array_filter($tweets, 'tweet_contains_keyword')
 function tweet_contains_keyword($tweet) {
-	global $twitter_keywords;
+	global $keywords;
 	
-	foreach ($twitter_keywords as &$keyword) {
+	foreach ($keywords as &$keyword) {
 		if(stripos($tweet->text, $keyword) !== false) {
 			return true;
 		}
@@ -310,9 +332,9 @@ function get_channel_videos($channel_id, $current_video_list = null) {
 //Is case insensitive
 //Use with array_filter() e.g. array_filter(get_channel_videos(channel_id, 'video_contains_keyword');
 function video_contains_keyword($video) {
-	global $youtube_keywords;
+	global $keywords;
 	
-	foreach ($youtube_keywords as &$keyword) {
+	foreach ($keywords as &$keyword) {
 		if(stripos($video->snippet->title, $keyword) !== false || stripos($video->snippet->description, $keyword) !== false) {
 			return true;
 		}
