@@ -37,7 +37,8 @@ $keywords = get_keywords_from_tags();
 
 //TO BE CALLED BY OTHER STUFF
 function get_usernames($social_media) {
-	global $media_sources;
+	$options = get_option( 'smwf_options' );
+    $media_sources = preg_split("/\r\n|\n|\r/", $options['media_sources']);
 	
 	$usernames = array();
 	
