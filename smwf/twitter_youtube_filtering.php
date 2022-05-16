@@ -259,7 +259,7 @@ function collect_tweets($user_id) {
 		$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results, 'pagination_token' => $result->meta->next_token]);
 		
 		if(is_null($result) || property_exists($result, 'errors')) {
-			return break;
+			break;
 		}
 	
 		$tweets = array_merge($tweets, $result->data);
