@@ -112,26 +112,35 @@ function update_social_medias() {
 	update_youtube_videos();
 }
 
-function get_name_from_tags() {
+function get_name_from_tags($social_media) {
 	$id = get_the_ID();
 	$tags = get_the_tags($id);
 	
+	$usernames = array();
+	
+	if(strcmp($social_media, 'twitter') == 0) {
+		$usernames = get_usernames('twitter');
+	}
+	
+	if(strcmp($social_media, 'youtube') == 0) {
+		$usernames = get_usernames('twitter');
+	}
 	//assuming there is one type of social media account for each post
-	return array_intersect(array_keys(get_usernames('twitter')), $tags)[0];
+	return array_intersect(array_keys($usernames), $tags)[0];
 }
 
 function get_keywords_from_tags() {
-	$name = get_name_from_tags();
+	$names = array(get_name_from_tags('twitter'), get_name_from_tags('youtube'));
 	
 	$id = get_the_ID();
 	$tags = get_the_tags($id);
 	
-	return array_diff($tags, array($name));
+	return array_diff($tags, $names);
 }
 
 
 function filter_tweets() {
-	$name = get_name_from_tags();
+	$name = get_name_from_tags('twitter');
 	$tweets_from_file = get_object_from_file("$name" . "_tweets");
 	
 	if(!is_null($tweets_from_file)) {
@@ -143,7 +152,7 @@ function filter_tweets() {
 
 //To be called externally for filtering
 function filter_videos() {
-	$name = get_name_from_tags();
+	$name = get_name_from_tags('youtube');
 	$videos_from_file = get_object_from_file("$name" . "_videos");
 	
 	if(!is_null($videos_from_file)) {
