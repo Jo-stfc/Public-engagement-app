@@ -9,51 +9,12 @@ if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
 
 use Abraham\TwitterOAuth\TwitterOAuth;
 
-function get_cached_var($var_name) {
-	$value = wp_cache_get($var_name);
-	
-	if($value !== false) {
-		return $value;
-	}
-	
-	switch ($var_name) {
-    case 'connection':
-        $value = init_twitter_connection();
-        break;
-    case 'twitter_usernames':
-        $value = get_usernames('twitter');
-        break;
-    case 'twitter_max_results':
-        $value = '20';
-        break;
-	case 'service':
-        $value = init_youtube_connection();
-        break;
-	case 'youtube_usernames':
-        $value = get_usernames('youtube');
-        break;
-	case 'youtube_max_results':
-        $value = 20;
-        break;
-	 default:
-       $value = null;
-	}
-	
-	wp_cache_set($var_name, $value);
-	
-	return $value;
-	
-}
-
 function init_twitter_connection() {
-	//if the value is cached (not false) use it, otherwise intitialise it
-	$api_secrets = wp_cache_get('api_secrets') ? wp_cache_get('api_secrets') : get_object_from_file('api_secrets');
+	$api_secrets = get_object_from_file('api_secrets');
 	$CONSUMER_KEY = $api_secrets->CONSUMER_KEY;
 	$CONSUMER_SECRET = $api_secrets->CONSUMER_SECRET;
 	$access_token = $api_secrets->access_token;
 	$access_token_secret = $api_secrets->access_token_secret;
-	
-	wp_cache_set('api_secrets', $api_secrets);
 	
 	$connection = new TwitterOAuth($CONSUMER_KEY, $CONSUMER_SECRET, $access_token, $access_token_secret);
 	$content = $connection->get("account/verify_credentials");
@@ -63,16 +24,12 @@ function init_twitter_connection() {
 }
 
 function init_youtube_connection() {
-	//if the value is cached (not false) use it, otherwise intitialise it
-	$api_secrets = wp_cache_get('api_secrets') ? wp_cache_get('api_secrets') : get_object_from_file('api_secrets');
-	$client = wp_cache_get('client') ? wp_cache_get('client') : new Google_Client();
+	$api_secrets = get_object_from_file('api_secrets');
+	$client = new Google_Client();
 	$developer_key = $api_secrets->developer_key;
 
 	$client->setApplicationName('STFC Interactive Site Maps');
 	$client->setDeveloperKey($developer_key);
-	
-	wp_cache_set('api_secrets', $api_secrets);
-	wp_cache_set('client', $client);
 
 	return new Google_Service_YouTube($client);
 }
@@ -95,31 +52,19 @@ function get_usernames($social_media) {
 
 //Initialises or updates the variables and files for all user's tweets
 function update_tweets() {
-	$twitter_usernames = get_cached_var('twitter_usernames');
+	$twitter_usernames = get_usernames('twitter');
 
 	foreach ($twitter_usernames as $user_name => $user_id) {
-		${$user_name . '_tweets'} = get_cached_var("$user_name" . "_tweets");
 		$tweets_from_file = get_object_from_file("$user_name" . "_tweets");
 		
-		//If the tweets are in memory, use that
-		if(isset(${$user_name . '_tweets'})) {
-			$latest_id = ${$user_name . '_tweets'}[0]->id;
-			
-			try {
-				$new_tweets = get_new_tweets($user_id, $latest_id);
-				${$user_name . '_tweets'} = array_merge($new_tweets, ${$user_name . '_tweets'});
-				write_object_to_file(${$user_name . '_tweets'}, "$user_name" . "_tweets");
-			} catch(Exception $e) {
-				echo 'Message: ' .$e->getMessage();
-			}
-		//Else use the data loaded from file if it exists
-		} elseif(!is_null($tweets_from_file)) {
+		//Use the data loaded from file if it exists
+		if(!is_null($tweets_from_file)) {
 			$latest_id = $tweets_from_file[0]->id;
 			
 			try {
 				$new_tweets = get_new_tweets($user_id, $latest_id);
-				${$user_name . '_tweets'} = array_merge($new_tweets, $tweets_from_file);
-				write_object_to_file(${$user_name . '_tweets'}, "$user_name" . "_tweets");
+				$aggregated_tweets = array_merge($new_tweets, $tweets_from_file);
+				write_object_to_file($aggregated_tweets, "$user_name" . "_tweets");
 			} catch(Exception $e) {
 				echo 'Message: ' .$e->getMessage();
 			}
@@ -129,31 +74,24 @@ function update_tweets() {
 				$collected_tweets = collect_tweets($user_id);
 			
 				if(count($collected_tweets) > 0) {
-					${$user_name . '_tweets'} = $collected_tweets;
-					write_object_to_file(${$user_name . '_tweets'}, "$user_name" . "_tweets");
+					write_object_to_file($collected_tweets, "$user_name" . "_tweets");
 				}
 			} catch(Exception $e) {
 				echo 'Message: ' .$e->getMessage();
 			}
 		}
 	}
-	
-	wp_cache_set("$user_name" . "_tweets", ${$user_name . '_tweets'});
 }
 
 //Initialises or updates the variables and files for all channels's youtube videos
 function update_youtube_videos() {
-	$youtube_usernames = get_cached_var('youtube_usernames');
+	$youtube_usernames = get_usernames('youtube');
 	
 	foreach ($youtube_usernames as $user_name => &$channel_id) {
-		${$user_name . '_videos'} = get_cached_var("$user_name" . "_videos");
 		$videos_from_file = get_object_from_file("$user_name" . "_videos");
 		
-		//If the videos are in memory, use that
-		if(isset(${$user_name . '_videos'})) {
-			$video_list = ${$user_name . '_videos'};
-		//Else use the data loaded from file if it exists
-		} elseif(!is_null($videos_from_file)) {
+		//Use the data loaded from file if it exists
+		if(!is_null($videos_from_file)) {
 			$video_list = $videos_from_file;
 		//Clean initialisation
 		} else {
@@ -161,14 +99,11 @@ function update_youtube_videos() {
 		}
 		
 		try {
-			${$user_name . '_videos'} = get_channel_videos($channel_id, $video_list);
-			write_object_to_file(${$user_name . '_videos'}, "$user_name" . "_videos");
+			write_object_to_file(get_channel_videos($channel_id, $video_list), "$user_name" . "_videos");
 		} catch(Exception $e) {
 			echo 'Message: ' .$e->getMessage();
 		}
 	}
-	
-	wp_cache_set("$user_name" . "_videos", ${$user_name . '_videos'});
 }
 
 //Called by cron for updating/initilising social medias
@@ -177,60 +112,42 @@ function update_social_medias() {
 	update_youtube_videos();
 }
 
-function get_name_from_tags($social_media) {
+function get_name_from_tags() {
 	$id = get_the_ID();
 	$tags = get_the_tags($id);
 	
 	//assuming there is one type of social media account for each post
-	return array_intersect(get_usernames($social_media), $tags)[0];
+	return array_intersect(array_keys(get_usernames('twitter')), $tags)[0];
 }
 
 function get_keywords_from_tags() {
-	$twitter_usernames = get_cached_var('twitter_usernames');
-	$youtube_usernames = get_cached_var('youtube_usernames');
+	$name = get_name_from_tags();
 	
 	$id = get_the_ID();
 	$tags = get_the_tags($id);
-	$all_socials = array_merge($twitter_usernames, $youtube_usernames);
 	
-	return array_diff($all_socials, $tags);
+	return array_diff($tags, array($name));
 }
 
 
 function filter_tweets() {
-	$user_name = get_name_from_tags('twitter');
-	
-	if(isset(${$user_name . '_tweets'})) {
-		return array_filter(${$user_name . '_tweets'}, 'tweet_contains_keyword');
-	}
-	
-	$tweets_from_file = get_object_from_file("$user_name" . "_tweets");
+	$name = get_name_from_tags();
+	$tweets_from_file = get_object_from_file("$name" . "_tweets");
 	
 	if(!is_null($tweets_from_file)) {
-		${$user_name . '_tweets'} = $tweets_from_file;
-		wp_cache_set("$user_name" . "_tweets", ${$user_name . '_tweets'});
-		
-		return array_filter(${$user_name . '_tweets'}, 'tweet_contains_keyword');
+		return array_filter($tweets_from_file, 'tweet_contains_keyword');
 	}
 	
 	return array();
 }
 
-//To be called externally for filtering, uses a file as a fallback
+//To be called externally for filtering
 function filter_videos() {
-	$user_name = get_name_from_tags('youtube');
-	
-	if(isset(${$user_name . '_videos'})) {
-		return array_filter(${$user_name . '_videos'}->items, 'video_contains_keyword');
-	}
-	
-	$videos_from_file = get_object_from_file("$user_name" . "_videos");
+	$name = get_name_from_tags();
+	$videos_from_file = get_object_from_file("$name" . "_videos");
 	
 	if(!is_null($videos_from_file)) {
-		${$user_name . '_videos'} = $videos_from_file;
-		wp_cache_set("$user_name" . "_videos", ${$user_name . '_videos'});
-		
-		return array_filter(${$user_name . '_videos'}->items, 'video_contains_keyword');
+		return array_filter($videos_from_file->items, 'video_contains_keyword');
 	}
 	
 	return array();
@@ -242,8 +159,8 @@ function filter_videos() {
 
 //Fetches as many of a user's tweets as the API allows
 function collect_tweets($user_id) {
-	$connection = get_cached_var('connection');
-	$twitter_max_results = get_cached_var('twitter_max_results');
+	$connection = init_twitter_connection();
+	$twitter_max_results = '20';
 	
 	$tweets = array();
 	$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results]);
@@ -261,7 +178,7 @@ function collect_tweets($user_id) {
 		if(is_null($result) || property_exists($result, 'errors')) {
 			break;
 		}
-	
+
 		$tweets = array_merge($tweets, $result->data);
 	}
 	
@@ -284,9 +201,8 @@ function tweet_contains_keyword($tweet) {
 
 //Gets a user's new tweets published since the ID of the tweet provided
 function get_new_tweets($user_id, $last_tweet_id) {
-	$connection = get_cached_var('connection');
-	$twitter_max_results = get_cached_var('twitter_max_results');
-	
+	$connection = init_twitter_connection();
+	$twitter_max_results = '20';
 	$tweets = array();
 	$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results, 'since_id' => $last_tweet_id]);
 	
@@ -295,7 +211,7 @@ function get_new_tweets($user_id, $last_tweet_id) {
 	}
 	
 	$tweets = array_merge($tweets, $result->data);
-	
+
 	//while there are still tweets to get, fetch them and add them to the list
 	while(property_exists($result->meta, 'next_token')) {
 		$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results, 'since_id' => $last_tweet_id, 'pagination_token' => $result->meta->next_token]);
@@ -303,7 +219,7 @@ function get_new_tweets($user_id, $last_tweet_id) {
 		if(is_null($result) || property_exists($result, 'errors')) {
 			break;
 		}
-	
+
 		$tweets = array_merge($tweets, $result->data);
 	}
 	
@@ -312,7 +228,7 @@ function get_new_tweets($user_id, $last_tweet_id) {
 
 //Gets a list of Twitter IDs from a list of user names
 function get_twitter_user_ids($user_names) {
-	$connection = get_cached_var('connection');
+	$connection = init_twitter_connection();
 	
 	$user_ids = array();
 	$user_id_response_array = $connection->get('users/by', ['usernames' => $user_names]);
@@ -335,8 +251,8 @@ function get_twitter_user_ids($user_names) {
 //Gets either all of a YouTube channel's videos or just the new ones not already saved
 //The number of new videos to fetch is calculated by the new total number of ideos - old total number of videos
 function get_channel_videos($channel_id, $current_video_list = null) {
-	$youtube_max_results = get_cached_var('youtube_max_results');
-	$service = get_cached_var('service');
+	$youtube_max_results = 20;
+	$service = init_youtube_connection();
 	
 	$videos = array();
 	$previous_total_videos = is_null($current_video_list) ? 0 : $current_video_list->pageInfo->totalResults;
@@ -357,6 +273,7 @@ function get_channel_videos($channel_id, $current_video_list = null) {
 	$new_video_list->pageInfo->totalResults = $new_total_videos;
 	$videos = $remaining_videos_to_fetch < $youtube_max_results ? array_merge($videos, array_slice($response->items, 0, $remaining_videos_to_fetch, true)) : array_merge($videos, $response->items);
 	$remaining_videos_to_fetch = $remaining_videos_to_fetch - $youtube_max_results;
+
 	//while there are more videos to fetch
 	while(property_exists($response, 'nextPageToken') && $remaining_videos_to_fetch > 0) {
 		$query_params['pageToken'] = $response->nextPageToken;
@@ -364,7 +281,7 @@ function get_channel_videos($channel_id, $current_video_list = null) {
 
 		//if we've reached the last page of results we need, only add the remaining number of videos we need, otherwise add the whole page
 		$videos = $remaining_videos_to_fetch < $youtube_max_results ? array_merge($videos, array_slice($response->items, 0, $remaining_videos_to_fetch, true)) : array_merge($videos, $response->items);
-		
+
 		$remaining_videos_to_fetch = $remaining_videos_to_fetch - $youtube_max_results;
 	}
 
