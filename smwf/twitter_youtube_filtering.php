@@ -236,6 +236,7 @@ function get_new_tweets($user_id, $last_tweet_id) {
 }
 
 //Gets a list of Twitter IDs from a list of user names
+//Provide user names as a comma-separated string with no spaces e.g. 'john,sarah'
 function get_twitter_user_ids($user_names) {
 	$connection = init_twitter_connection();
 	
@@ -243,6 +244,8 @@ function get_twitter_user_ids($user_names) {
 	$user_id_response_array = $connection->get('users/by', ['usernames' => $user_names]);
 	
 	if(is_null($user_id_response_array) || property_exists($user_id_response_array, 'errors')) {
+		echo 'Message: ' .$e->getMessage();
+		
 		return array();
 	}
 	
