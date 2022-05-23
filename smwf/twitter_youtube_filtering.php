@@ -125,6 +125,7 @@ function get_name_from_tags($social_media) {
 	if(strcmp($social_media, 'youtube') == 0) {
 		$usernames = get_usernames('twitter');
 	}
+	
 	//assuming there is one type of social media account for each post
 	return array_intersect(array_keys($usernames), $tags)[0];
 }
@@ -174,7 +175,7 @@ function collect_tweets($user_id) {
 	$tweets = array();
 	$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results]);
 	
-	if(is_null($result) || property_exists($result, 'errors')) {
+	if(is_null($result) || property_exists($result, 'errors') || !property_exists($result, 'data')) {
 		return array();
 	}
 	
@@ -184,7 +185,7 @@ function collect_tweets($user_id) {
 	while(property_exists($result->meta, 'next_token')) {
 		$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results, 'pagination_token' => $result->meta->next_token]);
 		
-		if(is_null($result) || property_exists($result, 'errors')) {
+		if(is_null($result) || property_exists($result, 'errors') || !property_exists($result, 'data')) {
 			break;
 		}
 
@@ -225,7 +226,7 @@ function get_new_tweets($user_id, $last_tweet_id) {
 	while(property_exists($result->meta, 'next_token')) {
 		$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results, 'since_id' => $last_tweet_id, 'pagination_token' => $result->meta->next_token]);
 		
-		if(is_null($result) || property_exists($result, 'errors')) {
+		if(is_null($result) || property_exists($result, 'errors') || !property_exists($result, 'data')) {
 			break;
 		}
 
