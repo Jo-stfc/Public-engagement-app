@@ -39,14 +39,22 @@ function get_usernames($social_media) {
 	$options = get_option( 'smwf_options' );
     $media_sources = preg_split("/\r\n|\n|\r/", $options['media_sources']);
 	
-	$usernames = array();
-	
-	foreach ($media_sources as &$media_source) {
-		if($media_source->social == $social_media) {
-			$usernames[$media_source->tag] = $media_source->id;
-		}
-	}
-	
+	foreach($media_sources as $key => $source){
+                 $split_text = preg_split("/,/", $source);
+                 $source_ob = new StdClass();
+                 $source_ob->social = $split_text[0];
+                 $source_ob->url = $split_text[1];
+                 $source_ob->tag = $split_text[2];
+                 $source_ob->id = $split_text[3];
+                 $media_sources[$key] = clone $source_ob;
+        }
+        $usernames = array();
+        foreach ($media_sources as &$media_source) {
+                if($media_source->social == $social_media) {
+                        echo var_dump($media_source);
+                        $usernames[$media_source->tag] = $media_source->id;
+                }
+        }
 	return $usernames;
 }
 
@@ -115,6 +123,9 @@ function update_social_medias() {
 function get_name_from_tags($social_media) {
 	$id = get_the_ID();
 	$tags = get_the_tags($id);
+	$t2 = array();
+        $t2 = array_map(function($x) {return $x->name;}, $tags);
+        $tags = $t2;
 	
 	$usernames = array();
 	
@@ -127,7 +138,7 @@ function get_name_from_tags($social_media) {
 	}
 	
 	//assuming there is one type of social media account for each post
-	return array_intersect(array_keys($usernames), $tags)[0];
+	return array_values(array_intersect(array_keys($usernames), $tags))[0];
 }
 
 function get_keywords_from_tags() {
@@ -135,7 +146,9 @@ function get_keywords_from_tags() {
 	
 	$id = get_the_ID();
 	$tags = get_the_tags($id);
-	
+	$t2 = array();
+	$t2 = array_map(function($x) {return $x->name;}, $tags);
+        $tags = $t2;
 	return array_diff($tags, $names);
 }
 
@@ -326,7 +339,7 @@ function video_contains_keyword($video) {
 //Serialises an object and writes it to a file
 //If the file already exists it is overwritten
 function write_object_to_file($object, $file_name) {
-	$fp = fopen($file_name, 'w');
+	$fp = fopen( plugin_dir_path(__FILE__) . $file_name, 'w');
 	fwrite($fp, serialize($object));
 	fclose($fp);
 }
@@ -336,7 +349,7 @@ function write_object_to_file($object, $file_name) {
 //Returns null if an error is thrown while reading the file
 function get_object_from_file($fileNanme) {
 	try {
-		$file_contents = file_get_contents($fileNanme);
+		$file_contents = file_get_contents( plugin_dir_path(__FILE__) . $fileNanme);
 	} catch(Exception $e) {
 		return null;
 	}
