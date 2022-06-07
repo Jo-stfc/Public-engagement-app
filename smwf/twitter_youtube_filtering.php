@@ -9,6 +9,7 @@ if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
 
 use Abraham\TwitterOAuth\TwitterOAuth;
 
+//Creates a new twitter connection with credentials from the secrets file
 function init_twitter_connection() {
 	$api_secrets = get_object_from_file('api_secrets');
 	$CONSUMER_KEY = $api_secrets->CONSUMER_KEY;
@@ -23,6 +24,7 @@ function init_twitter_connection() {
 	return $connection;
 }
 
+//Creates a new youtube connection with credentials from the secrets file
 function init_youtube_connection() {
 	$api_secrets = get_object_from_file('api_secrets');
 	$client = new Google_Client();
@@ -35,6 +37,8 @@ function init_youtube_connection() {
 }
 
 //TO BE CALLED BY OTHER STUFF
+
+//Gets social media ('twitter' or 'youtube') usernames from wordpress' media sources variable
 function get_usernames($social_media) {
 	$options = get_option( 'smwf_options' );
     $media_sources = preg_split("/\r\n|\n|\r/", $options['media_sources']);
@@ -50,14 +54,15 @@ function get_usernames($social_media) {
 	return $usernames;
 }
 
-//Initialises or updates the variables and files for all user's tweets
+//Creates or updates the files containing tweets for each twitter user specified in media sources
 function update_tweets() {
 	$twitter_usernames = get_usernames('twitter');
-
+	
+	//For each twitter user
 	foreach ($twitter_usernames as $user_name => $user_id) {
 		$tweets_from_file = get_object_from_file("$user_name" . "_tweets");
 		
-		//Use the data loaded from file if it exists
+		//Use the tweets loaded from file if it exists
 		if(!is_null($tweets_from_file)) {
 			$latest_id = $tweets_from_file[0]->id;
 			
@@ -68,7 +73,7 @@ function update_tweets() {
 			} catch(Exception $e) {
 				echo 'Message: ' .$e->getMessage();
 			}
-		//Clean initialisation
+		//There are no existing tweets so start from scratch
 		} else {
 			try {
 				$collected_tweets = collect_tweets($user_id);
@@ -83,17 +88,18 @@ function update_tweets() {
 	}
 }
 
-//Initialises or updates the variables and files for all channels's youtube videos
+//Creates or updates the files containing youtube videos for each youtube user specified in media sources
 function update_youtube_videos() {
 	$youtube_usernames = get_usernames('youtube');
 	
+	//For each youtube user
 	foreach ($youtube_usernames as $user_name => &$channel_id) {
 		$videos_from_file = get_object_from_file("$user_name" . "_videos");
 		
-		//Use the data loaded from file if it exists
+		//Use the videos loaded from file if it exists
 		if(!is_null($videos_from_file)) {
 			$video_list = $videos_from_file;
-		//Clean initialisation
+		//There are no existing videos so start from scratch
 		} else {
 			$video_list = null;
 		}
@@ -112,6 +118,8 @@ function update_social_medias() {
 	update_youtube_videos();
 }
 
+
+//Gets the twitter or youtube username from a post's tags
 function get_name_from_tags($social_media) {
 	$id = get_the_ID();
 	$tags = get_the_tags($id);
@@ -126,20 +134,23 @@ function get_name_from_tags($social_media) {
 		$usernames = get_usernames('twitter');
 	}
 	
-	//assuming there is one type of social media account for each post
+	//assuming there is one type (twitter or youtube) of social media account to get posts from for each post
 	return array_intersect(array_keys($usernames), $tags)[0];
 }
 
+
+//Gets a post's filter keywords from its tags
 function get_keywords_from_tags() {
 	$names = array(get_name_from_tags('twitter'), get_name_from_tags('youtube'));
 	
 	$id = get_the_ID();
 	$tags = get_the_tags($id);
 	
+	//everything that isn't a social media username is a filter keyword
 	return array_diff($tags, $names);
 }
 
-
+//To be called when a post needs tweets to display, filtered by its keywords
 function filter_tweets() {
 	$name = get_name_from_tags('twitter');
 	$tweets_from_file = get_object_from_file("$name" . "_tweets");
@@ -151,7 +162,7 @@ function filter_tweets() {
 	return array();
 }
 
-//To be called externally for filtering
+//To be called when a post needs videos to display, filtered by its keywords
 function filter_videos() {
 	$name = get_name_from_tags('youtube');
 	$videos_from_file = get_object_from_file("$name" . "_videos");
@@ -262,7 +273,7 @@ function get_twitter_user_ids($user_names) {
 //YOUTUBE_STUFF
 
 //Gets either all of a YouTube channel's videos or just the new ones not already saved
-//The number of new videos to fetch is calculated by the new total number of ideos - old total number of videos
+//The number of new videos to fetch is calculated by the new total number of videos - old total number of videos
 function get_channel_videos($channel_id, $current_video_list = null) {
 	$youtube_max_results = 20;
 	$service = init_youtube_connection();
