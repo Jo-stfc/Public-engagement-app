@@ -48,7 +48,7 @@ function smwf_plugin_section_text() {
 
 function smwf_setting_media_sources() {
             $options = get_option( 'smwf_options' );
-            echo "<textarea id='smwf_source_media' name='smwf_options[media_sources]' rows=7 cols=50 type='textarea'>{$options['media_sources']}</textarea>";
+            echo "<textarea id='smwf_source_media' name='smwf_options[media_sources]' rows=7 cols=100 type='textarea'>{$options['media_sources']}</textarea>";
 //          echo "<input style='width:80%; min-height:400px;' type='text' id='smwf_source_media' name='smwf_options[media_sources]' value='" . esc_attr( $options['media_sources'] ) . "' />";
 }
 
@@ -113,6 +113,15 @@ function twitter_filter_content( $content )
          $smwf_tags = get_the_tags($postid);
          $options = get_option( 'smwf_options' );
          $media_sources = preg_split("/\r\n|\n|\r/", $options['media_sources']);
+         foreach($media_sources as $key => $source){
+                 $split_text = preg_split("/,/", $source);
+                 $source_ob = new StdClass();
+                 $source_ob->social = $split_text[0];
+                 $source_ob->url = $split_text[1];
+                 $source_ob->tag = $split_text[2];
+                 $source_ob->id = $split_text[3];
+                 $media_sources[$key] = clone $source_ob;
+         }
          // tag filtering stuff goes here
          foreach ($smwf_tags as &$lc_tag) {
                  echo $lc_tag->name;
