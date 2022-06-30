@@ -45,7 +45,7 @@ function test_plugin_setup_menu(){
 function smwf_plugin_section_text() {
             echo '<p>Here you can set all the options for using the API</p>';
 }
-
+// SETTINGS TEXTBOX
 function smwf_setting_media_sources() {
             $options = get_option( 'smwf_options' );
             echo "<textarea id='smwf_source_media' name='smwf_options[media_sources]' rows=7 cols=100 type='textarea'>{$options['media_sources']}</textarea>";
@@ -100,7 +100,7 @@ register_deactivation_hook( __FILE__, 'deactivate_smwf' );
  * admin-specific hooks, and public-facing site hooks.
  */
 require plugin_dir_path( __FILE__ ) . 'includes/class-smwf.php';
-
+include plugin_dir_path( __FILE__ ) . 'twitter_youtube_filtering.php';
 wp_register_style('your_namespace', plugins_url('style.css',__FILE__ ));
 wp_enqueue_style('your_namespace');
 
@@ -108,10 +108,11 @@ function twitter_filter_content( $content )
 {
     global $post ;
     if ( is_singular() && in_the_loop() && is_main_query() && $post->post_type == "post" )
-    {
+    {    // load and parse variables
          $postid = $post->ID ;
          $smwf_tags = get_the_tags($postid);
          $options = get_option( 'smwf_options' );
+         global $media_sources;
          $media_sources = preg_split("/\r\n|\n|\r/", $options['media_sources']);
          foreach($media_sources as $key => $source){
                  $split_text = preg_split("/,/", $source);
@@ -122,42 +123,124 @@ function twitter_filter_content( $content )
                  $source_ob->id = $split_text[3];
                  $media_sources[$key] = clone $source_ob;
          }
-         // tag filtering stuff goes here
-         foreach ($smwf_tags as &$lc_tag) {
-                 echo $lc_tag->name;
-                 echo "----------------";
+         // TAG FILTERING
+         $facebook_link = "";
+         $instagram_link = "";
+         foreach ($smwf_tags as $lc_tag) {
+                 foreach($media_sources as $ms){
+                         if (strcasecmp($lc_tag->name , $ms->tag) == 0 && strcasecmp( $ms->social , 'facebook') == 0){
+                                 $facebook_link .= "<p><a href='" . $ms->url . "' class='fblink'>" . ucwords(str_replace("_", " ", $ms->tag)) . " Facebook</a></p><br>";
+                         }
+                         if (strcasecmp($lc_tag->name , $ms->tag) == 0 && strcasecmp( $ms->social , 'instagram') == 0){
+                                 $instagram_link .= "<p><a href='" . $ms->url . "' class='instagram'>" . ucwords(str_replace("_", " ", $ms->tag)) . " Instagram</a></p>";
+                         }
+                 }
+                 //DEBUG return saved tweets
+                 //global ${$lc_tag}_twitter;
+                 //if isset(${$lc_tag}_twitter){
+                //       echo ${$lc_tag}_twitter;
+                // }
+                // else{
+        //               echo ${$lc_tag}_twitter;
+        //       }
          }
-         foreach ($media_sources as &$md_src) {
-                 echo $md_src;
-                 echo "----------------";
-         }
-         // get list of renderables
-         $s1 = new StdClass() ;
-         $s1->title = "test post 1" ;
-         $s1->content = "somethingsomething that or other" ;
-         $s1->link = "https://www.google.com" ;
-         $s1->image = "https://asia.olympus-imaging.com/content/000107507.jpg" ;
-         $s2 = new StdClass() ;
-         $s2->title = "test post 2" ;
-         $s2->content = "somethingsomething that or other" ;
+         
+         $tweets = array_values(filter_tweets());
+         $ytube = array_values(filter_videos());
 
-         $sample = array($s1,$s2);
 
          //render
-         $renderable = "<style>" . file_get_contents( __DIR__ . "/styles.css") . "</style><div class='smwf-postlist'>";
-         for ($postn = 0; $postn < count($sample) ; $postn++ ){
-                $renderable .= "<div class='smwf-post'><a href='" .  $sample[$postn]->link . "'><h3>" . $sample[$postn]->title  . "</h3><br/><div class='smwf-content'>"  . $sample[$postn]->content  . "</div>" ;
-                if (! empty($sample[$postn]->image)){
-                        $renderable .= "<img src='" . $sample[$postn]->image  . "'>";
-                }
-                $renderable .= "</a></div>";
+         $renderable = "<style>" . file_get_contents( __DIR__ . "/styles.css") . "</style><div class='smlinks'><div class='fbblock' >" . $facebook_link . "</div> <div class='instablock'> " . $instagram_link . "</div></div><div class='smwf-postlist'><div class='twitterblock'>";
+         for ($postn = 0; $postn < min(count($tweets),6); $postn++ ){
+                  // V1 CUSTOM TWEET DISPLAY
+                 //      $renderable .= "<div class='smwf-post'><a href='https://twitter.com/twitter/status/" .  $tweets[$postn]->id . "'><h3>" . $tweets[$postn]->title  . "</h3><br/><div class='smwf-content'>"  . $tweets[$postn]->text  . "</div>" ;
+                 //      $renderable .= "</a></div>";
+               // TWITTER DEFAULT TWEET RENDERING
+               $renderable .="<div class='twittercon' id=\"container" . $postn . "\"></div><script>twttr.widgets.createTweet(
+  '" . $tweets[$postn]->id . "',
+  document.getElementById('container" . $postn . "'),
+  {
+
+  }
+    );
+         </script>";
          }
-         $renderable .= "</div>";
+         if (!empty(get_id_from_tags('twitter'))){
+                 $renderable .= "</div><a style='background-color:lightblue;padding:5px;margin-bottom:15px' href='https://twitter.com/intent/user?user_id=" . get_id_from_tags('twitter') . "'>More Tweets</a>";
+         }
+         if(!empty($ytube)){
+                 $renderable .="<p>To navigate between videos in this playlist, use the 'Next Video' and 'Previous Video' buttons, or click the Youtube button to watch on Youtube.com.</p>
+                                <div id=\"player\"></div>";
+         }
+
+         // RENDER YOUTUBE VIDEOS
+         $renderable .="</div>";
+//       $renderable .= "<ul class=\"list-unstyled video-list-thumbs row\">";
+         $vodid = array();
+         foreach ( $ytube as $video ) {
+
+        # $renderable .= "<li class=\"col-lg-3 col-sm-4 col-xs-6\"><a href=\"http://www.youtube.com/watch?v=" . $video->getId()->getVideoId() . "])\" title=\" " .  $video['snippet']['title']  . " \" target=\"_blank\"><img src=\" " . $video['snippet']['thumbnails']['medium']['url'] . " \" alt=\" " .  $video['snippet']['title'] . " \" class=\"img-responsive\" height=\"130px\" /><h2 class=\"truncate\"> " . $video['snippet']['title'] . " </h2><span class=\"glyphicon glyphicon-play-circle\"></span></a></li>";
+         array_push($vodid,$video->getId()->getVideoId());
+         }
+            
+         $vodid=json_encode($vodid);
+         $vodid=str_replace('"','',$vodid);
+         $vodid=str_replace('[','"',$vodid);
+         $vodid=str_replace(']','"',$vodid);
+         //echo $ytube;
+//       $renderable .="</ul>";
+         $renderable .= "<script>
+      var tag = document.createElement('script');
+      tag.src = \"https://www.youtube.com/iframe_api\";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      var player;
+      function onYouTubeIframeAPIReady() {
+        player = new YT.Player('player', {
+          height: '390',
+          width: '640',
+          videoId: 'dwM78wnqYK0',
+          playerVars: {
+          'playsinline': 1,
+                  'controls': 1,
+                  'playlist': $vodid
+          },
+          events: {
+            'onReady': onPlayerReady,
+            'onStateChange': onPlayerStateChange
+          }
+        });
+      }
+
+      function onPlayerReady(event) {
+        //player.queVideoByID('9Nr6lohmbhY');
+        event.target.playVideo();
+      }
+
+      var done = false;
+      function onPlayerStateChange(event) {
+        if (event.data == YT.PlayerState.PLAYING && !done) {
+          setTimeout(stopVideo, 6000);
+          done = true;
+        }
+      }
+      function stopVideo() {
+        player.stopVideo();
+      }
+
+    </script>";
+
          return $content . $renderable;
     }
     else {
         return $content;
     }
+}
+// CRON UPDATE TWEETS (called each hour)
+add_action( 'update_media_action', 'update_social_medias', 10, 0 );
+# cron job for API calls - first check whether it is already scheduled, and if not, schedule the cron twicedaily.
+if ( ! wp_next_scheduled( 'update_media_action' ) ) {
+ wp_schedule_event( time(), 'hourly', 'update_media_action' );
 }
 
 add_filter( 'the_content', 'twitter_filter_content');
