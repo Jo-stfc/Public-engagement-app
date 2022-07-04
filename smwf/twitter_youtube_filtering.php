@@ -55,7 +55,7 @@ function get_usernames($social_media) {
         $usernames = array();
         foreach ($media_sources as &$media_source) {
                 if($media_source->social == $social_media) {
-                        echo var_dump($media_source);
+                        //echo var_dump($media_source);
                         $usernames[$media_source->tag] = $media_source->id;
                 }
         }
@@ -160,8 +160,14 @@ function get_name_from_tags($social_media) {
 		$usernames = get_usernames('twitter');
 	}
 	
+	//remove the general STFC account if others are available
+	$names_arr=array_values(array_intersect(array_keys($usernames), $tags));
+        if (count($names_arr)>1){
+                $names_arr=array_values(array_diff(array_intersect(array_keys($usernames), $tags),['STFC']));
+        }
+	
 	//assuming there is one type (twitter or youtube) of social media account to get posts from for each post
-	return array_values(array_intersect(array_keys($usernames), $tags))[0];
+	return $names_arr[0];
 }
 
 
@@ -186,9 +192,15 @@ function filter_tweets() {
 	$tweets_from_file = get_object_from_file("$name" . "_tweets");
 	
 	if(!is_null($tweets_from_file)) {
-		return array_filter($tweets_from_file, 'tweet_contains_keyword');
-	}
-	
+                 $filtered=array_filter($tweets_from_file, 'tweet_contains_keyword');
+                 // failsafe for no results when filtered
+                 if(!empty($filtered)){
+                      return $filtered;
+                 }
+                 else{
+                      return $tweets_from_file;
+		 }
+        }
 	return array();
 }
 
@@ -198,10 +210,23 @@ function filter_videos() {
 	$videos_from_file = get_object_from_file("$name" . "_videos");
 	
 	if(!is_null($videos_from_file)) {
-		return array_filter($videos_from_file->items, 'video_contains_keyword');
-	}
-	
-	return array();
+		$filtered=array_filter($videos_from_file->items, 'video_contains_keyword');
+	        if(!empty($filtered)){
+                         return $filtered;
+                 }
+		// return unfiltered videos from SM account
+                else{
+                        return $videos_from_file->items;
+                }
+        }
+	// return STFC youtube videos filtered by keyword
+        else{
+          $videos_from_file = get_object_from_file("STFC" . "_videos");
+          $filtered=array_filter($videos_from_file->items, 'video_contains_keyword_stfc');
+                if(!empty($filtered)){
+                         return $filtered;
+                 }
+        }
 }
 
 //TO BE CALLED BY OTHER STUFF
@@ -244,7 +269,10 @@ function collect_tweets($user_id) {
 //Use array_filter() e.g. array_filter($tweets, 'tweet_contains_keyword')
 function tweet_contains_keyword($tweet) {
 	$keywords = get_keywords_from_tags();
-	
+	//return all tweets for general pages (no keywords specified)
+        if(empty($keywords)) {
+                return true;
+        }
 	foreach ($keywords as &$keyword) {
 		if(stripos($tweet->text, $keyword) !== false) {
 			return true;
@@ -356,7 +384,10 @@ function get_channel_videos($channel_id, $current_video_list = null) {
 //Use with array_filter() e.g. array_filter(get_channel_videos(channel_id, 'video_contains_keyword');
 function video_contains_keyword($video) {
 	$keywords = get_keywords_from_tags();
-	
+	//return all videos for general pages (no keywords specified)
+        if(empty($keywords)) {
+                 return true;
+        }
 	foreach ($keywords as &$keyword) {
 		if(stripos($video->snippet->title, $keyword) !== false || stripos($video->snippet->description, $keyword) !== false) {
 			return true;
@@ -364,6 +395,24 @@ function video_contains_keyword($video) {
 	}
 	
 	return false;
+}
+
+//keyword filter including account keywords for general STFC youtube account
+function video_contains_keyword_stfc($video) {
+        $tags = get_the_tags($id);
+        $t2 = array();
+        $t2 = array_map(function($x) {return $x->name;}, $tags);
+        $keywords = $t2;
+        //return all tweets for general pages (no keywords specified)
+                if(empty($keywords)) {
+                            return true;
+                                    }
+        foreach ($keywords as &$keyword) {
+                if(stripos($video->snippet->title, $keyword) !== false || stripos($video->snippet->description, $keyword) !== false) {
+                        return true;
+                }
+        }
+        return false;
 }
 
 //YOUTUBE STUFF
