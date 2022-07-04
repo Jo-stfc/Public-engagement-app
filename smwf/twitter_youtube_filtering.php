@@ -77,6 +77,13 @@ function update_tweets() {
 			try {
 				$new_tweets = get_new_tweets($user_id, $latest_id);
 				$aggregated_tweets = array_merge($new_tweets, $tweets_from_file);
+				
+				//If the number of tweets currently stored is greater than the max allowed, cull the oldest posts
+				if(count($aggregated_tweets) > 200) {
+					$num_elems_to_remove = count($aggregated_tweets) - 200;
+					array_splice($aggregated_tweets, count($aggregated_tweets) - $num_elems_to_remove, $num_elems_to_remove);
+				}
+				
 				write_object_to_file($aggregated_tweets, "$user_name" . "_tweets");
 			} catch(Exception $e) {
 				echo 'Message: ' .$e->getMessage();
@@ -113,7 +120,15 @@ function update_youtube_videos() {
 		}
 		
 		try {
-			write_object_to_file(get_channel_videos($channel_id, $video_list), "$user_name" . "_videos");
+			$aggregated_videos = get_channel_videos($channel_id, $video_list);
+			
+			//If the number of videos currently stored is greater than the max allowed, cull the oldest posts
+			if(count($aggregated_videos) > 200) {
+					$num_elems_to_remove = count($aggregated_videos) - 200;
+					array_splice($aggregated_videos, count($aggregated_videos) - $num_elems_to_remove, $num_elems_to_remove);
+			}
+			
+			write_object_to_file($aggregated_videos, "$user_name" . "_videos");
 		} catch(Exception $e) {
 			echo 'Message: ' .$e->getMessage();
 		}
@@ -197,6 +212,8 @@ function filter_videos() {
 function collect_tweets($user_id) {
 	$connection = init_twitter_connection();
 	$twitter_max_results = '20';
+	$twitter_max_results_int = (int)$twitter_max_results;
+	$tweet_collection_limit = 200;
 	
 	$tweets = array();
 	$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results]);
@@ -206,9 +223,10 @@ function collect_tweets($user_id) {
 	}
 	
 	$tweets = array_merge($tweets, $result->data);
+	$tweet_collection_limit = $tweet_collection_limit - $twitter_max_results_int;
 
-	//while there are still tweets to get, fetch them and add them to the list
-	while(property_exists($result->meta, 'next_token')) {
+	//while there are still tweets to get and the limit of tweets has not been reached, fetch them and add them to the list
+	while(property_exists($result->meta, 'next_token') && $tweet_collection_limit > 0) {
 		$result = $connection->get("users/$user_id/tweets", ['max_results' => $twitter_max_results, 'pagination_token' => $result->meta->next_token]);
 		
 		if(is_null($result) || property_exists($result, 'errors') || !property_exists($result, 'data')) {
@@ -216,6 +234,7 @@ function collect_tweets($user_id) {
 		}
 
 		$tweets = array_merge($tweets, $result->data);
+		$tweet_collection_limit = $tweet_collection_limit - $twitter_max_results_int;
 	}
 	
 	return $tweets;

@@ -18,6 +18,10 @@ The filter keywords for a post are fetched by getting the post's tags that don't
 
 Data is written to and read from disk in a way that preserves its structure so there shouldn't be any issue directly using the writing and reading functions provided in the plugin with objects.
 
+The number of results return by an API query can be adjusted by changed the
+
+A limit on the number of post stored for each social media account has been implemented to ensure that page load times are kept in check.
+
 # Pagination
 
 When the number of results from an API query is greater than the number of items that can fit in a single response, the caller receives a token that can be used to rerieve the next set of results in the response returned by the API. If this token is passed in a request, the next 'page' of results is returned, with another token for the next page if there is one. This process repeats until the last page of results is reached. Twitter's API [docs](https://developer.twitter.com/en/docs/twitter-api/pagination) detail this.
